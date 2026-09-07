@@ -1,10 +1,13 @@
+```javascript
 import { initializeApp } from
     "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
 
 import {
     getFirestore,
     collection,
-    getDocs
+    getDocs,
+    deleteDoc,
+    doc
 } from
     "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
@@ -41,7 +44,8 @@ const db = getFirestore(app);
 // FIRESTORE COLLECTION
 // ==========================================
 
-const clientsCollection = collection(db, "clients");
+const clientsCollection =
+    collection(db, "clients");
 
 
 // ==========================================
@@ -61,67 +65,111 @@ const status =
 
 async function loadClients() {
 
+    // ==========================================
+    // CLEAR CONTAINER
+    // ==========================================
+
     clientsContainer.innerHTML = "";
 
+
+    // ==========================================
+    // LOADING MESSAGE
+    // ==========================================
+
+    const loadingMessage =
+        document.createElement("p");
+
+    loadingMessage.textContent =
+        "Loading clients...";
+
+    clientsContainer.appendChild(
+        loadingMessage
+    );
+
+
     try {
+
+        // ==========================================
+        // GET CLIENTS FROM FIRESTORE
+        // ==========================================
 
         const snapshot =
             await getDocs(clientsCollection);
 
 
         // ==========================================
-        // CONVERT FIRESTORE DOCUMENTS TO ARRAY
+        // CONVERT DOCUMENTS TO ARRAY
         // ==========================================
 
         const clients = [];
 
-        snapshot.forEach((document) => {
 
-            const client = document.data();
+        snapshot.forEach(
+            (documentSnapshot) => {
 
-            clients.push(client);
+                const client =
+                    documentSnapshot.data();
 
-        });
 
+                clients.push({
 
-        // ==========================================
-        // SORT BY CREATED DATE
-        // ASCENDING = OLDEST FIRST
-        // ==========================================
+                    // IMPORTANT:
+                    // Save Firestore document ID
+                    id: documentSnapshot.id,
 
-        clients.sort((a, b) => {
+                    ...client
 
-            // Clients without a timestamp go last
-            if (!a.createdAt && !b.createdAt) {
-                return 0;
+                });
+
             }
-
-            if (!a.createdAt) {
-                return 1;
-            }
-
-            if (!b.createdAt) {
-                return -1;
-            }
-
-
-            return (
-                a.createdAt.toMillis() -
-                b.createdAt.toMillis()
-            );
-
-        });
+        );
 
 
         // ==========================================
-        // CREATE COMPONENTS
+        // SORT CLIENTS
+        //
+        // NEWEST FIRST
         // ==========================================
 
-        clients.forEach((client) => {
+        clients.sort(
+            (a, b) => {
 
-            createClientComponent(client);
+                // Both have no timestamp
+                if (
+                    !a.createdAt &&
+                    !b.createdAt
+                ) {
+                    return 0;
+                }
 
-        });
+
+                // A has no timestamp
+                if (!a.createdAt) {
+                    return 1;
+                }
+
+
+                // B has no timestamp
+                if (!b.createdAt) {
+                    return -1;
+                }
+
+
+                // NEWEST FIRST
+                return (
+                    b.createdAt.toMillis() -
+                    a.createdAt.toMillis()
+                );
+
+            }
+        );
+
+
+        // ==========================================
+        // CLEAR LOADING MESSAGE
+        // ==========================================
+
+        clientsContainer.innerHTML = "";
 
 
         // ==========================================
@@ -130,10 +178,33 @@ async function loadClients() {
 
         if (clients.length === 0) {
 
-            clientsContainer.innerHTML =
-                "<p>No clients found.</p>";
+            const emptyMessage =
+                document.createElement("p");
 
+            emptyMessage.textContent =
+                "No clients found.";
+
+            clientsContainer.appendChild(
+                emptyMessage
+            );
+
+            return;
         }
+
+
+        // ==========================================
+        // CREATE CLIENT COMPONENTS
+        // ==========================================
+
+        clients.forEach(
+            (client) => {
+
+                createClientComponent(
+                    client
+                );
+
+            }
+        );
 
 
     } catch (error) {
@@ -143,8 +214,19 @@ async function loadClients() {
             error
         );
 
-        clientsContainer.innerHTML =
-            "<p>Could not retrieve clients.</p>";
+
+        clientsContainer.innerHTML = "";
+
+
+        const errorMessage =
+            document.createElement("p");
+
+        errorMessage.textContent =
+            "Could not retrieve clients.";
+
+        clientsContainer.appendChild(
+            errorMessage
+        );
 
     }
 
@@ -157,10 +239,16 @@ async function loadClients() {
 
 function createClientComponent(client) {
 
+    // ==========================================
+    // CREATE CARD
+    // ==========================================
+
     const card =
         document.createElement("div");
 
-    card.classList.add("client-card");
+    card.classList.add(
+        "client-card"
+    );
 
 
     // ==========================================
@@ -171,94 +259,449 @@ function createClientComponent(client) {
         "Date unavailable";
 
 
-    if (client.createdAt) {
+    if (
+        client.createdAt &&
+        typeof client.createdAt.toDate === "function"
+    ) {
 
         const date =
             client.createdAt.toDate();
 
 
         createdDate =
-            date.toLocaleString("en-ZA", {
+            date.toLocaleString(
+                "en-ZA",
+                {
+                    day: "2-digit",
 
-                day: "2-digit",
+                    month: "2-digit",
 
-                month: "2-digit",
+                    year: "numeric",
 
-                year: "numeric",
+                    hour: "2-digit",
 
-                hour: "2-digit",
+                    minute: "2-digit",
 
-                minute: "2-digit",
+                    second: "2-digit",
 
-                second: "2-digit",
-
-                hour12: false
-
-            });
+                    hour12: false
+                }
+            );
 
     }
 
 
     // ==========================================
-    // CLIENT CARD
+    // CLIENT TITLE
     // ==========================================
 
-    card.innerHTML = `
+    const heading =
+        document.createElement("h3");
 
-        <h3>Client</h3>
-
-
-        <p class="client-info">
-
-            <span class="client-label">
-                Client ID:
-            </span>
-
-            <span class="client-id">
-                ${client.clientId || ""}
-            </span>
-
-        </p>
+    heading.textContent =
+        "Client";
 
 
-        <p class="client-info">
+    // ==========================================
+    // CLIENT ID
+    // ==========================================
 
-            <span class="client-label">
-                Phone:
-            </span>
+    const clientIdParagraph =
+        document.createElement("p");
 
-            ${client.phoneNumber || ""}
-
-        </p>
-
-
-        <p class="client-info">
-
-            <span class="client-label">
-                Access Code:
-            </span>
-
-            ${client.accessCode || ""}
-
-        </p>
+    clientIdParagraph.classList.add(
+        "client-info"
+    );
 
 
-        <p class="client-info">
+    const clientIdLabel =
+        document.createElement("span");
 
-            <span class="client-label">
-                Created:
-            </span>
+    clientIdLabel.classList.add(
+        "client-label"
+    );
 
-            <span class="created-date">
-                ${createdDate}
-            </span>
-
-        </p>
-
-    `;
+    clientIdLabel.textContent =
+        "Client ID: ";
 
 
-    clientsContainer.appendChild(card);
+    const clientIdValue =
+        document.createElement("span");
+
+    clientIdValue.classList.add(
+        "client-id"
+    );
+
+    clientIdValue.textContent =
+        client.clientId || "";
+
+
+    clientIdParagraph.appendChild(
+        clientIdLabel
+    );
+
+    clientIdParagraph.appendChild(
+        clientIdValue
+    );
+
+
+    // ==========================================
+    // PHONE
+    // ==========================================
+
+    const phoneParagraph =
+        document.createElement("p");
+
+    phoneParagraph.classList.add(
+        "client-info"
+    );
+
+
+    const phoneLabel =
+        document.createElement("span");
+
+    phoneLabel.classList.add(
+        "client-label"
+    );
+
+    phoneLabel.textContent =
+        "Phone: ";
+
+
+    const phoneValue =
+        document.createElement("span");
+
+    phoneValue.textContent =
+        client.phoneNumber || "";
+
+
+    phoneParagraph.appendChild(
+        phoneLabel
+    );
+
+    phoneParagraph.appendChild(
+        phoneValue
+    );
+
+
+    // ==========================================
+    // ACCESS CODE
+    // ==========================================
+
+    const accessCodeParagraph =
+        document.createElement("p");
+
+    accessCodeParagraph.classList.add(
+        "client-info"
+    );
+
+
+    const accessCodeLabel =
+        document.createElement("span");
+
+    accessCodeLabel.classList.add(
+        "client-label"
+    );
+
+    accessCodeLabel.textContent =
+        "Access Code: ";
+
+
+    const accessCodeValue =
+        document.createElement("span");
+
+    accessCodeValue.textContent =
+        client.accessCode || "";
+
+
+    accessCodeParagraph.appendChild(
+        accessCodeLabel
+    );
+
+    accessCodeParagraph.appendChild(
+        accessCodeValue
+    );
+
+
+    // ==========================================
+    // CREATED DATE
+    // ==========================================
+
+    const createdParagraph =
+        document.createElement("p");
+
+    createdParagraph.classList.add(
+        "client-info"
+    );
+
+
+    const createdLabel =
+        document.createElement("span");
+
+    createdLabel.classList.add(
+        "client-label"
+    );
+
+    createdLabel.textContent =
+        "Created: ";
+
+
+    const createdValue =
+        document.createElement("span");
+
+    createdValue.classList.add(
+        "created-date"
+    );
+
+    createdValue.textContent =
+        createdDate;
+
+
+    createdParagraph.appendChild(
+        createdLabel
+    );
+
+    createdParagraph.appendChild(
+        createdValue
+    );
+
+
+    // ==========================================
+    // ACTIONS CONTAINER
+    // ==========================================
+
+    const actions =
+        document.createElement("div");
+
+    actions.classList.add(
+        "client-actions"
+    );
+
+
+    // ==========================================
+    // DELETE BUTTON
+    // ==========================================
+
+    const deleteButton =
+        document.createElement("button");
+
+    deleteButton.type =
+        "button";
+
+    deleteButton.classList.add(
+        "delete-client-button"
+    );
+
+    deleteButton.textContent =
+        "Delete";
+
+
+    // ==========================================
+    // DELETE BUTTON CLICK
+    // ==========================================
+
+    deleteButton.addEventListener(
+        "click",
+        async () => {
+
+            await deleteClient(
+                client.id,
+                card,
+                deleteButton
+            );
+
+        }
+    );
+
+
+    // ==========================================
+    // ADD BUTTON
+    // ==========================================
+
+    actions.appendChild(
+        deleteButton
+    );
+
+
+    // ==========================================
+    // ADD CONTENT TO CARD
+    // ==========================================
+
+    card.appendChild(
+        heading
+    );
+
+    card.appendChild(
+        clientIdParagraph
+    );
+
+    card.appendChild(
+        phoneParagraph
+    );
+
+    card.appendChild(
+        accessCodeParagraph
+    );
+
+    card.appendChild(
+        createdParagraph
+    );
+
+    card.appendChild(
+        actions
+    );
+
+
+    // ==========================================
+    // ADD CARD TO CONTAINER
+    // ==========================================
+
+    clientsContainer.appendChild(
+        card
+    );
+
+}
+
+
+// ==========================================
+// DELETE CLIENT
+// ==========================================
+
+async function deleteClient(
+    clientDocumentId,
+    card,
+    deleteButton
+) {
+
+    // ==========================================
+    // MAKE SURE DOCUMENT ID EXISTS
+    // ==========================================
+
+    if (!clientDocumentId) {
+
+        console.error(
+            "Client document ID is missing."
+        );
+
+        status.textContent =
+            "Could not delete client.";
+
+        return;
+    }
+
+
+    // ==========================================
+    // CONFIRM DELETE
+    // ==========================================
+
+    const confirmed =
+        window.confirm(
+            "Are you sure you want to delete this client?"
+        );
+
+
+    if (!confirmed) {
+        return;
+    }
+
+
+    // ==========================================
+    // DISABLE BUTTON WHILE DELETING
+    // ==========================================
+
+    deleteButton.disabled =
+        true;
+
+    deleteButton.textContent =
+        "Deleting...";
+
+
+    status.textContent =
+        "Deleting client...";
+
+
+    try {
+
+        // ==========================================
+        // CREATE DOCUMENT REFERENCE
+        // ==========================================
+
+        const clientDocument =
+            doc(
+                db,
+                "clients",
+                clientDocumentId
+            );
+
+
+        // ==========================================
+        // DELETE FIRESTORE DOCUMENT
+        // ==========================================
+
+        await deleteDoc(
+            clientDocument
+        );
+
+
+        // ==========================================
+        // REMOVE CARD FROM PAGE
+        // ==========================================
+
+        card.remove();
+
+
+        // ==========================================
+        // SUCCESS MESSAGE
+        // ==========================================
+
+        status.textContent =
+            "Client deleted successfully.";
+
+
+        // ==========================================
+        // SHOW EMPTY MESSAGE IF LAST CLIENT
+        // ==========================================
+
+        if (
+            clientsContainer.children.length === 0
+        ) {
+
+            const emptyMessage =
+                document.createElement("p");
+
+            emptyMessage.textContent =
+                "No clients found.";
+
+            clientsContainer.appendChild(
+                emptyMessage
+            );
+
+        }
+
+
+    } catch (error) {
+
+        console.error(
+            "Error deleting client:",
+            error
+        );
+
+
+        // ==========================================
+        // RESTORE BUTTON
+        // ==========================================
+
+        deleteButton.disabled =
+            false;
+
+        deleteButton.textContent =
+            "Delete";
+
+
+        status.textContent =
+            "Could not delete client. Please try again.";
+
+    }
 
 }
 
@@ -268,3 +711,4 @@ function createClientComponent(client) {
 // ==========================================
 
 loadClients();
+```
